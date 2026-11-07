@@ -1,11 +1,61 @@
 import 'package:flutter/material.dart';
+import '../../../core/api/conductor_api.dart';
 
 import '../../auth/presentation/login_screen.dart';
 import '../../../models/schedule.dart';
 import 'schedule_detail_screen.dart';
 
-class SchedulesScreen extends StatelessWidget {
-  const SchedulesScreen({super.key});
+class SchedulesScreen extends StatefulWidget {
+  const SchedulesScreen({super.key, this.api});
+  final ConductorApi? api;
+
+  @override
+  State<SchedulesScreen> createState() => _SchedulesScreenState();
+}
+
+class _SchedulesScreenState extends State<SchedulesScreen> {
+  ConductorApi get _api => widget.api ?? ConductorApi.instance;
+  late Future<List<Schedule>> _schedules;
+  bool _loggingOut = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _schedules = _api.schedules();
+  }
+
+  Future<void> _reload() async {
+    final request = _api.schedules();
+    setState(() => _schedules = request);
+    try {
+      await request;
+    } catch (_) {
+      /* FutureBuilder muestra el error. */
+    }
+  }
+
+  Future<void> _signOut() async {
+    if (_loggingOut) return;
+    setState(() => _loggingOut = true);
+    try {
+      await _api.logout();
+    } on ApiException catch (error) {
+      if (error.status != 401) {
+        if (mounted) {
+          setState(() => _loggingOut = false);
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(error.message)));
+        }
+        return;
+      }
+    }
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => LoginScreen(api: _api)),
+      (_) => false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,41 +102,86 @@ class SchedulesScreen extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.logout),
                 title: const Text('Cerrar sesión'),
-                onTap: () => Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  (_) => false,
-                ),
+                onTap: _loggingOut ? null : _signOut,
               ),
             ],
           ),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-        children: [
-          const _DriverCard(),
-          const SizedBox(height: 26),
-          Text(
-            'Programaciones',
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 12),
-          ...schedules.map(
-            (schedule) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _ScheduleCard(schedule: schedule),
+      body: FutureBuilder<List<Schedule>>(
+        future: _schedules,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            final error = snapshot.error;
+            final expired = error is ApiException && error.status == 401;
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      error is ApiException
+                          ? error.message
+                          : 'No se pudieron cargar las programaciones.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      onPressed: expired ? _signOut : _reload,
+                      child: Text(expired ? 'Volver a ingresar' : 'Reintentar'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+          final schedules = snapshot.data!;
+          return RefreshIndicator(
+            onRefresh: _reload,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+              children: [
+                _DriverCard(driver: _api.driver!),
+                const SizedBox(height: 26),
+                Text(
+                  'Programaciones',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 12),
+                if (schedules.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 30),
+                    child: Text(
+                      'No tienes programaciones pendientes.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ...schedules.map(
+                  (schedule) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _ScheduleCard(schedule: schedule, api: _api),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 }
 
 class _DriverCard extends StatelessWidget {
-  const _DriverCard();
+  const _DriverCard({required this.driver});
+
+  final Driver driver;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -110,14 +205,17 @@ class _DriverCard extends StatelessWidget {
           child: const Icon(Icons.person, color: Color(0xFF0B63CE), size: 30),
         ),
         const SizedBox(width: 14),
-        const Column(
+        Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Conductor', style: TextStyle(color: Color(0xFF5F7085))),
             SizedBox(height: 3),
-            Text('Juan Pérez', style: TextStyle(fontWeight: FontWeight.w800)),
+            Text(driver.name, style: TextStyle(fontWeight: FontWeight.w800)),
             SizedBox(height: 3),
-            Text('DNI: 12345678', style: TextStyle(color: Color(0xFF5F7085))),
+            Text(
+              'DNI: ${driver.dni}',
+              style: TextStyle(color: Color(0xFF5F7085)),
+            ),
           ],
         ),
       ],
@@ -126,7 +224,8 @@ class _DriverCard extends StatelessWidget {
 }
 
 class _ScheduleCard extends StatelessWidget {
-  const _ScheduleCard({required this.schedule});
+  const _ScheduleCard({required this.schedule, required this.api});
+  final ConductorApi api;
 
   final Schedule schedule;
 
@@ -138,7 +237,7 @@ class _ScheduleCard extends StatelessWidget {
     child: InkWell(
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => ScheduleDetailScreen(schedule: schedule),
+          builder: (_) => ScheduleDetailScreen(schedule: schedule, api: api),
         ),
       ),
       child: Padding(

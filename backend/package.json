@@ -1,0 +1,16 @@
+{
+  "name": "rsu-conductor-api",
+  "private": true,
+  "type": "module",
+  "engines": { "node": "22.x" },
+  "scripts": {
+    "start": "node --env-file=.env local-server.mjs",
+    "test": "node --test test/*.test.mjs",
+    "check-db": "node --env-file=.env scripts/check-db.mjs"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "jose": "^6.1.0",
+    "mysql2": "^3.15.3"
+  }
+}

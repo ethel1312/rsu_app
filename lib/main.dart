@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'core/theme/app_theme.dart';
+import 'core/api/conductor_api.dart';
 import 'features/auth/presentation/login_screen.dart';
 
 void main() {
@@ -8,7 +9,8 @@ void main() {
 }
 
 class RsuApp extends StatelessWidget {
-  const RsuApp({super.key});
+  const RsuApp({super.key, this.api});
+  final ConductorApi? api;
 
   @override
   Widget build(BuildContext context) {
@@ -16,7 +18,7 @@ class RsuApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'RSU',
       theme: AppTheme.light,
-      home: const LoginScreen(),
+      home: LoginScreen(api: api),
     );
   }
 }

@@ -1,0 +1,7 @@
+.env*
+!.env.example
+.npm-cache
+node_modules
+test
+scripts
+README.md

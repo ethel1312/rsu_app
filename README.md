@@ -1,5 +1,17 @@
 # rsu_app
 
+La app del conductor consulta TiDB mediante una API HTTPS independiente alojable
+en Vercel. Incluye únicamente inicio de sesión, programaciones y detalle.
+
+Configuración y despliegue: [backend/README.md](backend/README.md).
+
+```powershell
+flutter run --dart-define=API_BASE_URL=https://TU-PROYECTO.vercel.app/api
+```
+
+La URL debe existir y superar la comprobación `/api/health`. Todavía no hay un
+despliegue de producción validado. Sin configurar esa URL, no se simula un login.
+
 Aplicación móvil para la gestión de residuos sólidos urbanos.
 
 ## Getting Started

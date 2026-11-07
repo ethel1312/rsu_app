@@ -1,19 +1,24 @@
 import 'package:flutter/material.dart';
+import '../../../core/api/conductor_api.dart';
 
 import '../../conductor/presentation/schedules_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.api});
+  final ConductorApi? api;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  ConductorApi get _api => widget.api ?? ConductorApi.instance;
   final _formKey = GlobalKey<FormState>();
   final _userController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _hidePassword = true;
+  bool _loading = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -22,11 +27,30 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _signIn() {
+  Future<void> _signIn() async {
+    if (_loading) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const SchedulesScreen()),
-    );
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await _api.signIn(_userController.text, _passwordController.text);
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => SchedulesScreen(api: _api)),
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _error = error is ApiException
+              ? error.message
+              : 'No se pudo iniciar sesión.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -73,7 +97,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               controller: _userController,
                               textInputAction: TextInputAction.next,
                               decoration: const InputDecoration(
-                                hintText: 'Ingresa tu usuario',
+                                hintText: 'Ingresa tu DNI o correo',
                                 prefixIcon: Icon(Icons.person_outline),
                               ),
                               validator: (value) =>
@@ -111,12 +135,29 @@ class _LoginScreenState extends State<LoginScreen> {
                                   : null,
                             ),
                             const SizedBox(height: 24),
+                            if (_error != null) ...[
+                              Text(
+                                _error!,
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
                             SizedBox(
                               width: double.infinity,
                               height: 52,
                               child: FilledButton(
-                                onPressed: _signIn,
-                                child: const Text('Ingresar'),
+                                onPressed: _loading ? null : _signIn,
+                                child: _loading
+                                    ? const SizedBox(
+                                        width: 22,
+                                        height: 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Text('Ingresar'),
                               ),
                             ),
                           ],
