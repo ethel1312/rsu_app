@@ -1,30 +1,54 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:rsu_app/main.dart';
+import 'package:rsu_app/features/conductor/presentation/schedule_detail_screen.dart';
+import 'package:rsu_app/models/schedule.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('login navigates to the schedules screen', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const RsuApp());
+    await tester.enterText(find.byType(TextFormField).first, 'juan.perez');
+    await tester.enterText(find.byType(TextFormField).last, 'demo123');
+    await tester.tap(find.text('Ingresar'));
+    await tester.pumpAndSettle();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    expect(find.text('Mis programaciones'), findsOneWidget);
+    expect(find.text('Programaciones'), findsOneWidget);
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+  testWidgets('route button requires all staff present', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(home: ScheduleDetailScreen(schedule: schedules.first)),
+    );
+    await tester.drag(find.byType(ListView), const Offset(0, -600));
+    await tester.pump();
+    expect(find.text('Iniciar recorrido'), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.text('Iniciar recorrido'),
+        matching: find.byWidgetPredicate(
+          (widget) => widget is ButtonStyleButton && widget.onPressed != null,
+        ),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Carlos López'));
     await tester.pump();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.text('Iniciar recorrido'),
+        matching: find.byWidgetPredicate(
+          (widget) => widget is ButtonStyleButton && widget.onPressed != null,
+        ),
+      ),
+      findsNothing,
+    );
   });
 }
